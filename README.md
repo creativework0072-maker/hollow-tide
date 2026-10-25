@@ -1,4 +1,4 @@
-# Hollow Tide – Week 2 Prototype (Godot 4)
+# Hollow Tide – Prototype with Week 3 Assets (Godot 4)
 
 A 2D puzzle-platformer prototype where the player controls the tide.
 
@@ -32,3 +32,14 @@ too tall to jump – you need High tide.
 - `main.gd` – level building, tide, buoyancy, scoring, HUD
 - `player.gd` – movement, swimming, breath, crate pushing
 - `main.tscn`, `project.godot` – scene and project settings
+
+## Week 3 – Game assets
+All art and audio were created with the Python scripts in `tools/` and live in `assets/`.
+
+- `assets/art/` – animated player sheet, crate, pearls, urchin, beacon, ground/moss/water tiles, sky and ruined-city background
+- `assets/audio/` – 6 sound effects (jump, pearl, splash, tide, hurt, win) and a 32-second looping ambient music track
+- `tools/make_art.py` – regenerates all sprites and tiles (needs Pillow)
+- `tools/make_audio.py` – regenerates all audio (needs NumPy)
+- `asset_util.gd` – helpers that slice sprite sheets into animations and tile textures
+
+To regenerate the assets: `pip install pillow numpy`, then run both scripts from the project folder.

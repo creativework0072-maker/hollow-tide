@@ -1,8 +1,12 @@
 extends Node2D
-# Hollow Tide - Week 2 prototype.
+# Hollow Tide - Week 2 mechanics + Week 3 art and audio integration.
 # Core mechanics: movement + swimming, collision, tide control (Low/Mid/High),
 # buoyancy, collectibles (score), hazards, goal, and a simple HUD.
 # The level is built in code so the whole prototype is easy to read and edit.
+
+const AssetUtil = preload("res://asset_util.gd")
+const ART := "res://assets/art/"
+const AUDIO := "res://assets/audio/"
 
 const TIDE_Y := [600.0, 520.0, 330.0]   # water surface height per tide state
 const TIDE_NAMES := ["LOW", "MID", "HIGH"]
@@ -21,7 +25,11 @@ var won := false
 
 var player            # untyped on purpose: it uses a custom script
 var crate: RigidBody2D
-var water_rect: ColorRect
+var water_node: Node2D
+var water_surface: TextureRect
+var music: AudioStreamPlayer
+var sfx_cache := {}
+var anim_t := 0.0
 var hud: Label
 var msg: Label
 
@@ -30,6 +38,7 @@ func _ready() -> void:
 	_setup_input()
 	_build_level()
 	_build_hud()
+	_start_music()
 
 
 # ---------- Input ----------
@@ -53,7 +62,7 @@ func _setup_input() -> void:
 
 
 # ---------- Level building ----------
-func _add_block(x: float, y: float, w: float, h: float, color: Color) -> void:
+func _add_block(x: float, y: float, w: float, h: float, visible_art := true) -> void:
 	var b := StaticBody2D.new()
 	b.position = Vector2(x + w / 2.0, y + h / 2.0)
 	var cs := CollisionShape2D.new()
@@ -61,15 +70,14 @@ func _add_block(x: float, y: float, w: float, h: float, color: Color) -> void:
 	rs.size = Vector2(w, h)
 	cs.shape = rs
 	b.add_child(cs)
-	var r := ColorRect.new()
-	r.size = Vector2(w, h)
-	r.position = Vector2(-w / 2.0, -h / 2.0)
-	r.color = color
-	b.add_child(r)
+	if visible_art:
+		# Stone tile fill + a strip of moss along the top edge
+		b.add_child(AssetUtil.tile_rect(ART + "ground_tile.png", Vector2(-w / 2.0, -h / 2.0), Vector2(w, h)))
+		b.add_child(AssetUtil.tile_rect(ART + "moss_top.png", Vector2(-w / 2.0, -h / 2.0 - 2.0), Vector2(w, 12)))
 	add_child(b)
 
 
-func _add_area(pos: Vector2, size: Vector2, color: Color, callback: Callable) -> Area2D:
+func _add_area(pos: Vector2, size: Vector2, visual: Node, callback: Callable) -> Area2D:
 	var a := Area2D.new()
 	a.position = pos
 	var cs := CollisionShape2D.new()
@@ -77,33 +85,35 @@ func _add_area(pos: Vector2, size: Vector2, color: Color, callback: Callable) ->
 	rs.size = size
 	cs.shape = rs
 	a.add_child(cs)
-	var r := ColorRect.new()
-	r.size = size
-	r.position = -size / 2.0
-	r.color = color
-	a.add_child(r)
+	a.add_child(visual)
 	a.body_entered.connect(callback.bind(a))
 	add_child(a)
 	return a
 
 
 func _build_level() -> void:
-	# Sky background
-	var sky := ColorRect.new()
+	# Background: sky gradient and a hazy ruined-city silhouette
+	var sky := TextureRect.new()
+	sky.texture = load(ART + "bg_sky.png")
+	sky.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sky.stretch_mode = TextureRect.STRETCH_SCALE
 	sky.size = Vector2(2000, 1300)
 	sky.position = Vector2(-100, -450)
-	sky.color = Color("BFD7EA")
 	sky.z_index = -10
 	add_child(sky)
+	var city := TextureRect.new()
+	city.texture = load(ART + "bg_city.png")
+	city.position = Vector2(0, 261)
+	city.z_index = -9
+	add_child(city)
 
 	# Terrain
-	var dark := Color("12263A")
-	_add_block(0, 560, 450, 200, dark)        # left ground (start)
-	_add_block(450, 650, 600, 100, dark)      # sea floor of the pit
-	_add_block(1050, 560, 450, 200, dark)     # right ground
-	_add_block(1500, 380, 300, 380, dark)     # tall block with the exit on top
-	_add_block(-20, -450, 20, 1300, Color(0, 0, 0, 0))   # invisible walls
-	_add_block(1800, -450, 20, 1300, Color(0, 0, 0, 0))
+	_add_block(0, 560, 450, 200)        # left ground (start)
+	_add_block(450, 650, 600, 100)      # sea floor of the pit
+	_add_block(1050, 560, 450, 200)     # right ground
+	_add_block(1500, 380, 300, 380)     # tall block with the exit on top
+	_add_block(-20, -450, 20, 1300, false)   # invisible walls
+	_add_block(1800, -450, 20, 1300, false)
 
 	# Floating crate (RigidBody2D) - buoyancy is applied in _physics_process
 	crate = RigidBody2D.new()
@@ -116,27 +126,30 @@ func _build_level() -> void:
 	crs.size = Vector2(50, 50)
 	ccs.shape = crs
 	crate.add_child(ccs)
-	var cr := ColorRect.new()
-	cr.size = Vector2(50, 50)
-	cr.position = Vector2(-25, -25)
-	cr.color = Color("A9783B")
-	crate.add_child(cr)
+	var crate_sprite := Sprite2D.new()
+	crate_sprite.texture = load(ART + "crate.png")
+	crate.add_child(crate_sprite)
 	add_child(crate)
 
-	# Pearls (score)
+	# Pearls (score) - 4-frame shimmer animation
 	var pearl_positions := [
 		Vector2(200, 530), Vector2(775, 625), Vector2(950, 625),
 		Vector2(1200, 530), Vector2(1400, 530), Vector2(1650, 350),
 	]
 	for p in pearl_positions:
-		_add_area(p, Vector2(18, 18), Color("FFF1E6"), _on_pearl)
+		var ps := AssetUtil.build_sprite(ART + "pearl_sheet.png", 24, 24, {"shimmer": [0, 4, 6.0, true]})
+		ps.frame = randi() % 4          # desynchronise the shimmer
+		_add_area(p, Vector2(18, 18), ps, _on_pearl)
 
 	# Urchin hazards on the sea floor
 	for x in [700.0, 850.0]:
-		_add_area(Vector2(x, 636), Vector2(32, 28), Color("E76F51"), _on_hazard)
+		var us := Sprite2D.new()
+		us.texture = load(ART + "urchin.png")
+		_add_area(Vector2(x, 636), Vector2(32, 28), us, _on_hazard)
 
-	# Exit
-	_add_area(Vector2(1700, 340), Vector2(40, 80), Color("2A9D8F"), _on_exit)
+	# Exit beacon (lamp flickers between 2 frames)
+	var beacon := AssetUtil.build_sprite(ART + "exit_sheet.png", 40, 80, {"glow": [0, 2, 3.0, true]})
+	_add_area(Vector2(1700, 340), Vector2(40, 80), beacon, _on_exit)
 
 	# Player
 	player = CharacterBody2D.new()
@@ -144,13 +157,14 @@ func _build_level() -> void:
 	player.position = START_POS
 	add_child(player)
 
-	# Water (drawn last, semi-transparent, on top)
-	water_rect = ColorRect.new()
-	water_rect.size = Vector2(2000, 1100)
-	water_rect.position = Vector2(-100, water_y)
-	water_rect.color = Color(0.16, 0.62, 0.56, 0.45)
-	water_rect.z_index = 5
-	add_child(water_rect)
+	# Water: tiled body + a scrolling wave strip along the surface (drawn on top)
+	water_node = Node2D.new()
+	water_node.position = Vector2(0, water_y)
+	water_node.z_index = 5
+	water_node.add_child(AssetUtil.tile_rect(ART + "water_tile.png", Vector2(-100, 0), Vector2(2000, 1100)))
+	water_surface = AssetUtil.tile_rect(ART + "water_surface.png", Vector2(-164, -6), Vector2(2100, 12))
+	water_node.add_child(water_surface)
+	add_child(water_node)
 
 
 func _build_hud() -> void:
@@ -175,6 +189,30 @@ func _style_label(l: Label, size: int) -> void:
 	l.add_theme_constant_override("outline_size", 6)
 
 
+# ---------- Audio ----------
+func _start_music() -> void:
+	var m: AudioStreamWAV = load(AUDIO + "music_theme.wav")
+	m.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	m.loop_begin = 0
+	m.loop_end = m.data.size() / 2        # 16-bit mono: 2 bytes per sample
+	music = AudioStreamPlayer.new()
+	music.stream = m
+	music.volume_db = -8.0
+	add_child(music)
+	music.play()
+
+
+func play_sfx(sfx_name: String, volume_db := 0.0) -> void:
+	if not sfx_cache.has(sfx_name):
+		sfx_cache[sfx_name] = load(AUDIO + sfx_name + ".wav")
+	var p := AudioStreamPlayer.new()
+	p.stream = sfx_cache[sfx_name]
+	p.volume_db = volume_db
+	add_child(p)
+	p.finished.connect(p.queue_free)
+	p.play()
+
+
 # ---------- Game loop ----------
 func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("restart"):
@@ -183,18 +221,25 @@ func _physics_process(delta: float) -> void:
 
 	if not won:
 		elapsed += delta
+	anim_t += delta
 
 	# Tide control (limited charges)
 	if Input.is_action_just_pressed("tide_up") and tide_state < 2 and charges > 0:
 		tide_state += 1
 		charges -= 1
+		play_sfx("sfx_tide", -4.0)
 	if Input.is_action_just_pressed("tide_down") and tide_state > 0 and charges > 0:
 		tide_state -= 1
 		charges -= 1
+		play_sfx("sfx_tide", -4.0)
 
 	var target: float = TIDE_Y[tide_state]
 	water_y = move_toward(water_y, target, TIDE_SPEED * delta)
-	water_rect.position.y = water_y
+	water_node.position.y = water_y
+	water_surface.position.x = -164.0 + fmod(anim_t * 24.0, 64.0)   # wave strip scrolls sideways
+	# Music gets quieter when Mira is underwater
+	var music_target := -16.0 if player.in_water else -8.0
+	music.volume_db = move_toward(music.volume_db, music_target, 30.0 * delta)
 
 	# Buoyancy: upward force proportional to how much of the crate is submerged.
 	# At 50% submerged the force equals gravity (mass * 980), so it floats there.
@@ -215,6 +260,7 @@ func respawn() -> void:
 	player.velocity = Vector2.ZERO
 	player.breath = 10.0
 	score = max(0, score - 5)
+	play_sfx("sfx_hurt")
 
 
 # ---------- Callbacks (the Area2D is bound as the last argument) ----------
@@ -222,6 +268,7 @@ func _on_pearl(body: Node, area: Area2D) -> void:
 	if body == player and not won:
 		score += 10
 		pearls += 1
+		play_sfx("sfx_pearl")
 		area.queue_free()
 
 
@@ -235,4 +282,5 @@ func _on_exit(body: Node, _area: Area2D) -> void:
 		won = true
 		var bonus: int = max(0, 50 - int(elapsed)) + charges * 5
 		score += bonus
+		play_sfx("sfx_win")
 		msg.text = "Level complete!\nFinal score: %d (R to restart)" % score
