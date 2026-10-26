@@ -24,7 +24,7 @@ def tone(freq, dur, sr, decay=6.0, harm=0.25):
     ph = 2*np.pi*np.cumsum(f)/sr
     return (np.sin(ph) + harm*np.sin(2*ph)) * np.exp(-decay*t)
 
-SR = 44100
+SR = 22050
 
 # --- Jump: quick rising sweep ---
 t = np.linspace(0, 1, int(.18*SR)); write("sfx_jump.wav", tone(280+300*t, .18, SR, decay=9), SR)
@@ -36,20 +36,20 @@ write("sfx_pearl.wav", pearl, SR)
 
 # --- Splash: filtered noise burst + bubble blip ---
 n = int(.45*SR); tt = np.arange(n)/SR
-splash = lowpass(rng.standard_normal(n), 12) * np.exp(-9*tt) * (1 - np.exp(-200*tt))
+splash = lowpass(rng.standard_normal(n), 6) * np.exp(-9*tt) * (1 - np.exp(-200*tt))
 bub = np.zeros(n); blip = tone(np.linspace(400, 900, int(.12*SR)), .12, SR, decay=18); bub[int(.05*SR):int(.05*SR)+len(blip)] = blip*.4
 write("sfx_splash.wav", splash + bub, SR)
 
 # --- Tide change: deep swelling rumble ---
 n = int(1.6*SR); tt = np.arange(n)/SR
 swell = np.sin(np.pi*tt/1.6)**2
-rumble = lowpass(rng.standard_normal(n), 220)*6 + np.sin(2*np.pi*np.cumsum(55+30*tt/1.6)/SR)
+rumble = lowpass(rng.standard_normal(n), 110)*6 + np.sin(2*np.pi*np.cumsum(55+30*tt/1.6)/SR)
 write("sfx_tide.wav", rumble*swell, SR, 0.7)
 
 # --- Hurt: descending buzzy saw ---
 n = int(.4*SR); tt = np.arange(n)/SR; f = 420 - 300*tt/.4
 saw = 2*((np.cumsum(f)/SR) % 1) - 1
-write("sfx_hurt.wav", lowpass(saw, 6)*np.exp(-5*tt), SR)
+write("sfx_hurt.wav", lowpass(saw, 3)*np.exp(-5*tt), SR)
 
 # --- Level complete: rising arpeggio ---
 notes = [523.25, 659.25, 783.99, 1046.5]; win = np.zeros(int(1.7*SR))
@@ -58,7 +58,7 @@ for i, fq in enumerate(notes):
 write("sfx_win.wav", win, SR)
 
 # --- Background music: 32 s ambient loop (Am - F - C - G), seamless ---
-MR = 22050; DUR = 32; N = DUR*MR; music = np.zeros(N)
+MR = 16000; DUR = 32; N = DUR*MR; music = np.zeros(N)
 chords = [([220, 261.63, 329.63], 55, [440, 523.25, 659.25, 880]),
           ([174.61, 220, 261.63], 43.65, [349.23, 440, 523.25, 698.46]),
           ([261.63, 329.63, 392], 65.41, [523.25, 659.25, 784, 1046.5]),
@@ -79,7 +79,7 @@ for ci, (pad, bass, plucks) in enumerate(chords):
         add(p*0.07, int((ci*8 + k)*MR + rng.integers(0, int(.15*MR))))
 
 # slow "ocean" noise swell, period = 8 s
-noise = lowpass(rng.standard_normal(N), 60)*3
+noise = lowpass(rng.standard_normal(N), 44)*3
 music += noise*(0.5+0.5*np.sin(2*np.pi*np.arange(N)/(8*MR)))*0.05
 # wrap-around echoes give a cheap reverb without breaking the loop
 music = music + 0.35*np.roll(music, int(.37*MR)) + 0.25*np.roll(music, int(.53*MR))

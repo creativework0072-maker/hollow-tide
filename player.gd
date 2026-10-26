@@ -1,5 +1,6 @@
 extends CharacterBody2D
 # Mira: walking, jumping, swimming, breath meter, crate pushing, animation and sound.
+# Week 5 additions are tagged [WEEK5-FIX] (bug fix) or [WEEK5-FEATURE] (new feature).
 
 const AssetUtil = preload("res://asset_util.gd")
 
@@ -7,11 +8,15 @@ const SPEED := 230.0
 const JUMP_VELOCITY := -430.0
 const GRAVITY := 1100.0
 const MAX_BREATH := 10.0
+const COYOTE_TIME := 0.10      # [WEEK5-FEATURE] can still jump 0.1 s after leaving a ledge
+const JUMP_BUFFER := 0.10      # [WEEK5-FEATURE] a jump pressed 0.1 s before landing still counts
 
 var breath := MAX_BREATH
 var in_water := false
 var was_in_water := false
 var splash_cooldown := 0.0
+var coyote := 0.0
+var jump_buffer := 0.0
 var sprite: AnimatedSprite2D
 
 
@@ -35,7 +40,7 @@ func _ready() -> void:
 	var cam := Camera2D.new()
 	cam.position_smoothing_enabled = true
 	cam.limit_left = 0
-	cam.limit_right = 1800
+	cam.limit_right = get_parent().level_width
 	cam.limit_top = -100
 	cam.limit_bottom = 720
 	add_child(cam)
@@ -60,11 +65,27 @@ func _physics_process(delta: float) -> void:
 		if Input.is_action_pressed("jump"):
 			velocity.y = -170.0
 		velocity.x = move_toward(velocity.x, dir * SPEED * 0.7, 1500.0 * delta)
+		coyote = 0.0
+		jump_buffer = 0.0
 	else:
 		velocity.y += GRAVITY * delta
-		if Input.is_action_just_pressed("jump") and is_on_floor():
+		# [WEEK5-FEATURE] coyote time + jump buffering make jumping feel more forgiving
+		if is_on_floor():
+			coyote = COYOTE_TIME
+		else:
+			coyote -= delta
+		if Input.is_action_just_pressed("jump"):
+			jump_buffer = JUMP_BUFFER
+		else:
+			jump_buffer -= delta
+		if jump_buffer > 0.0 and coyote > 0.0:
 			velocity.y = JUMP_VELOCITY
+			jump_buffer = 0.0
+			coyote = 0.0
 			main.play_sfx("sfx_jump")
+		# [WEEK5-FEATURE] variable jump height: release early for a shorter hop
+		if Input.is_action_just_released("jump") and velocity.y < -150.0:
+			velocity.y *= 0.5
 		velocity.x = move_toward(velocity.x, dir * SPEED, 1800.0 * delta)
 
 	# Breath meter: drains with head underwater, refills in air

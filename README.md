@@ -1,4 +1,4 @@
-# Hollow Tide – Prototype with Week 3 Assets (Godot 4)
+# Hollow Tide – Prototype (Godot 4): mechanics, assets and levels
 
 A 2D puzzle-platformer prototype where the player controls the tide.
 
@@ -43,3 +43,19 @@ All art and audio were created with the Python scripts in `tools/` and live in `
 - `asset_util.gd` – helpers that slice sprite sheets into animations and tile textures
 
 To regenerate the assets: `pip install pillow numpy`, then run both scripts from the project folder.
+
+## Week 4 – Level design and environment
+Two complete levels are playable (switch with the **1** and **2** keys, or press **N** after finishing a level):
+
+1. **Shallows of Veyra** – tutorial level that teaches tide control and swimming.
+2. **The Market Quarter** – longer level with a pressure-plate gate puzzle, a patrolling eel,
+   a checkpoint lantern, story murals, market-stall platforms and an aqueduct that needs High tide.
+
+New interactive elements: pressure plate + iron gate, patrolling eel, checkpoint lantern, story murals,
+level switching. New environment art: eel, lantern, mural, gate, plate, stall awning, seaweed, pillar, bubble.
+
+Level blueprint (maps, interactive elements, playtest notes): see the Week 4 level design document.
+
+## Week 5 - debugging and optimisation
+See `CHANGELOG.md`. Press **F3** in the game for live statistics and **F4** for a 10-second benchmark
+(saved in the project's user data folder). Set `OPTIMIZE` to `false` in `main.gd` to measure the "before" state.

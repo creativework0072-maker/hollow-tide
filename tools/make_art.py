@@ -169,4 +169,101 @@ while x < 600:
     x += bw + random.randint(0,6)
 save(city, "bg_city.png", 3)
 
+
+
+# =====================  WEEK 4: environmental assets  =====================
+
+# ---- Electric eel (24x10 -> 48x20, 2 swim frames) ----
+es = Image.new("RGBA", (48,10), (0,0,0,0))
+for i in range(2):
+    f = Image.new("RGBA", (24,10), (0,0,0,0)); d = ImageDraw.Draw(f)
+    pts = [(x, 5 + round(2*math.sin(x/3 + i*math.pi))) for x in range(2,22)]
+    for (x,y) in pts:
+        d.rectangle([x,y-1,x,y+1], fill=(30,80,90,255)); d.point((x,y-1), fill=(60,140,140,255))
+    hx, hy = pts[-1]
+    d.rectangle([hx-1,hy-2,hx+1,hy+2], fill=(40,100,110,255)); d.point((hx,hy-1), fill=(255,224,80,255))
+    for sx, sy in ([(6,0),(12,9),(16,0)] if i == 0 else [(8,9),(14,0),(4,9)]):
+        d.point((sx,sy), fill=(255,255,160,255))
+    es.paste(f, (i*24, 0))
+save(es, "eel_sheet.png")
+
+# ---- Checkpoint lantern (12x24 -> 24x48; frame 0 unlit, frame 1 lit) ----
+ls = Image.new("RGBA", (24,24), (0,0,0,0))
+for i in range(2):
+    f = Image.new("RGBA", (12,24), (0,0,0,0)); d = ImageDraw.Draw(f)
+    if i == 1: d.ellipse([0,0,11,12], fill=(255,224,138,70))
+    rect(d,5,10,6,23,NAVY); rect(d,3,2,8,2,NAVY); rect(d,3,9,8,9,NAVY)
+    rect(d,3,3,3,8,NAVY); rect(d,8,3,8,8,NAVY)
+    rect(d,4,3,7,8,(255,224,138,255) if i else (60,80,100,255))
+    rect(d,2,1,9,1,DEEP)
+    ls.paste(f, (i*12, 0))
+save(ls, "lantern_sheet.png")
+
+# ---- Story mural (24x32 -> 48x64) ----
+m = Image.new("RGBA", (24,32), (0,0,0,0)); d = ImageDraw.Draw(m)
+rect(d,1,1,22,31,(28,58,82,255)); rect(d,3,3,20,29,(18,38,58,255))
+for x in range(4,20):
+    d.point((x, 22+round(1.5*math.sin(x/2))), fill=(127,255,212,255))
+    d.point((x, 26+round(1.5*math.sin(x/2+1))), fill=(42,157,143,255))
+rect(d,11,10,12,20,(127,255,212,255)); d.polygon([(10,10),(13,10),(11.5,7)], fill=GOLD)
+for (x,y) in [(5,6),(18,8),(7,14),(17,15)]: d.point((x,y), fill=GOLD)
+save(m, "mural.png")
+
+# ---- Iron gate (20x32 -> 40x64, tiles vertically) ----
+IRON=(52,58,70,255); IRON_L=(100,112,128,255)
+g2 = Image.new("RGBA", (20,32), (0,0,0,0)); d = ImageDraw.Draw(g2)
+for bx in (1, 8, 15):
+    rect(d,bx,0,bx+2,31,IRON); rect(d,bx,0,bx,31,IRON_L)
+for ry in (4, 26): rect(d,0,ry,19,ry+1,IRON); rect(d,0,ry,19,ry,IRON_L)
+for (x,y) in [(4,4),(11,4),(17,4),(4,26),(11,26),(17,26)]: d.point((x,y), fill=CORAL)
+save(g2, "gate_tile.png")
+
+# ---- Pressure plate (36x8 per frame -> 72x16; frame 0 up, frame 1 pressed) ----
+pl = Image.new("RGBA", (72,8), (0,0,0,0))
+for i in range(2):
+    f = Image.new("RGBA", (36,8), (0,0,0,0)); d = ImageDraw.Draw(f)
+    top = 1 if i == 0 else 3
+    rect(d,0,top,35,7,(90,110,125,255)); rect(d,0,top,35,top,(140,160,175,255))
+    gc = (127,255,212,255) if i else (50,90,100,255)
+    rect(d,16,top+2,19,top+3,gc); rect(d,10,top+3,12,top+3,gc); rect(d,23,top+3,25,top+3,gc)
+    pl.paste(f, (i*36, 0))
+save(pl, "plate_sheet.png")
+
+# ---- Market stall awning (16x10 -> 32x20, tiles horizontally) ----
+st = Image.new("RGBA", (16,10), (0,0,0,0)); d = ImageDraw.Draw(st)
+for x in range(16):
+    col = CORAL if (x % 16) < 8 else FOAM
+    depth = 7 + (2 if (x % 8) in (2,3,4,5) else 1)
+    d.line([(x,0),(x,depth)], fill=col)
+    d.point((x,0), fill=(110,72,32,255))
+save(st, "stall_top.png")
+
+# ---- Seaweed (8x20 -> 16x40) ----
+sw = Image.new("RGBA", (8,20), (0,0,0,0)); d = ImageDraw.Draw(sw)
+for bx, hh in ((1,14),(3,19),(5,11)):
+    for y in range(hh):
+        x = bx + round(1.2*math.sin(y/3 + bx))
+        d.point((max(0,min(7,x)), 19-y), fill=(30,120,90,255) if y % 2 else (60,170,110,255))
+save(sw, "seaweed.png")
+
+# ---- Broken pillar (16x48 -> 32x96) ----
+pi = Image.new("RGBA", (16,48), (0,0,0,0)); d = ImageDraw.Draw(pi)
+rect(d,3,6,12,46,(150,165,175,255)); rect(d,10,6,12,46,(120,135,150,255))
+for fx in (5,8): d.line([(fx,8),(fx,44)], fill=(130,145,158,255))
+d.polygon([(3,6),(5,3),(7,6),(9,2),(12,6)], fill=(150,165,175,255))
+rect(d,1,44,14,47,(120,135,150,255))
+save(pi, "pillar.png")
+
+# ---- Bubble (3x3 -> 6x6) ----
+bu = Image.new("RGBA", (3,3), (0,0,0,0)); d = ImageDraw.Draw(bu)
+for p_ in [(1,0),(0,1),(2,1),(1,2)]: d.point(p_, fill=(210,240,255,210))
+save(bu, "bubble.png")
+
 print("art done:", sorted(os.listdir(OUT)))
+
+# [WEEK5-OPT] Lossless PNG optimisation: re-save every PNG with maximum compression.
+for _f in os.listdir(OUT):
+    if _f.endswith(".png"):
+        _p = os.path.join(OUT, _f)
+        Image.open(_p).convert("RGBA").save(_p, optimize=True, compress_level=9)
+print("PNG files optimised")
